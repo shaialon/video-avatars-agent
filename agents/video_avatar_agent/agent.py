@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import mimetypes
 import os
+from pathlib import Path
 
 import google.auth
 from google.genai import types
@@ -30,6 +33,34 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
 from subagents import script_sequencer_agent, video_agent
 from utils.storage_utils import upload_data_to_gcs
+
+# Cache for default view URLs (uploaded from assets folder)
+_default_view_urls: list[str] = []
+
+
+async def _upload_default_views() -> list[str]:
+    """Upload default view images from assets folder to GCS."""
+    global _default_view_urls
+    if _default_view_urls:
+        return _default_view_urls
+    
+    assets_dir = Path(__file__).parent.parent.parent / "assets"
+    view_files = sorted(assets_dir.glob("view*.jpeg"))
+    
+    if not view_files:
+        print("Warning: No view images found in assets folder")
+        return []
+    
+    urls = []
+    for view_file in view_files:
+        data = view_file.read_bytes()
+        mime_type = mimetypes.guess_type(str(view_file))[0] or "image/jpeg"
+        url = await upload_data_to_gcs("default_views", data, mime_type)
+        urls.append(url)
+        print(f"Uploaded default view: {view_file.name} -> {url}")
+    
+    _default_view_urls = urls
+    return urls
 
 
 async def before_model_callback(
@@ -63,12 +94,19 @@ async def before_model_callback(
     remove_indexes.reverse()
     for index in remove_indexes:
         user_content.parts.pop(index) # type: ignore
+    
+    # If no images were provided, use default views from assets folder
+    if upload_persona_views and len(persona_views_urls) == 0:
+        persona_views_urls = await _upload_default_views()
+    
     user_content.parts.append( # type: ignore
         types.Part.from_text(
-            text="## VIEW IMAGE URLS\n" + "\n - ".join(persona_views_urls)
+            text="## VIEW IMAGE URLS\n" + "\n - ".join(
+                f"View {i+1}: {url}" for i, url in enumerate(persona_views_urls)
+            )
         )
     )
-    if upload_persona_views:
+    if upload_persona_views and persona_views_urls:
         callback_context.state["persona_views"] = persona_views_urls
 
 

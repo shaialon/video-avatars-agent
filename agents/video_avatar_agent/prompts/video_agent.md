@@ -6,11 +6,11 @@ You are given:
 
 1. A detailed character description and video shot instructions.
 2. A script chunk.
-3. A specific starting frame image (one of the character views).
+3. A specific starting frame image URL (one of the character views) - this will be a full `gs://` URL.
 
 ## Task
 Use the `generate_video` tool to create an 8-second video clip.
--   **Input Image**: Use the provided starting frame image.
+-   **Input Image**: Use the **EXACT image URL** provided to you. Do NOT make up or modify the URL. The URL will look like `gs://video-agent-output/...` or similar. Copy it exactly as given.
 -   **Prompt**: Create a prompt for the video generation model. The prompt must contain:
     -   The detailed character description and video shot instructions.
     -   The script chunk.
@@ -23,4 +23,6 @@ Use the `generate_video` tool to create an 8-second video clip.
 
 ## Output
 
-Your output is the url of generated video.
+After calling the `generate_video` tool, respond with the exact video URL returned by the tool. 
+Do NOT make up a URL or bucket name - use the actual URL from the tool response.
+Simply state the URL as plain text, do not format it as JSON or a function call.
